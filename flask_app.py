@@ -14,15 +14,14 @@ import numpy as np
 app = Flask(__name__)
 # load your trained RF
 # PythonAnywhere dev
-# loaded_rf = joblib.load("/home/jkomar/kto/teaching-pedagogy/decision_tree/NLP_RFtrained.joblib")
-# with open("/home/jkomar/kto/teaching-pedagogy/decision_tree/rf_features.txt") as f:
-    # RF_FEATURES = [line.strip() for line in f]
-
-# Local Dev
-loaded_rf = joblib.load("./decision_tree/NLP_RFtrained.joblib")
-with open("./decision_tree/rf_features.txt") as f:
+loaded_rf = joblib.load("/home/jkomar/kto/teaching-pedagogy/decision_tree/NLP_RFtrained.joblib")
+with open("/home/jkomar/kto/teaching-pedagogy/decision_tree/rf_features.txt") as f:
     RF_FEATURES = [line.strip() for line in f]
 
+# Local Dev
+# loaded_rf = joblib.load("./decision_tree/NLP_RFtrained.joblib")
+# with open("./decision_tree/rf_features.txt") as f:
+    # RF_FEATURES = [line.strip() for line in f]
 
 EVENTS = [
   "Isolated technical skill practice","Game representative skill","Modified game",
