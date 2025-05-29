@@ -14,7 +14,8 @@ import random
 
 app = Flask(__name__)
 # load your trained RF
-loaded_rf = joblib.load("./decision_tree/NLP_RFtrained.joblib")
+loaded_rf = joblib.load("/home/jkomar/kto/teaching-pedagogy/decision_tree/NLP_RFtrained.joblib")
+# loaded_rf = joblib.load("./decision_tree/NLP_RFtrained.joblib")
 with open("./decision_tree/rf_features.txt") as f:
     RF_FEATURES = [line.strip() for line in f]
 
