@@ -25,6 +25,11 @@ body {
   margin-left: 0.75rem;
 }
 
+.navbar a.nav-link {
+  color: #333; /* dark text on white bg */
+}
+
+
 .pitch-heading {
   margin-bottom: 0 !important;
 }
