@@ -1,0 +1,63 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    /* global text sizing */
+    body { font-family: "Helvetica", sans-serif; margin:2cm; font-size:14pt; color:#333; }
+    h1 { text-align:center; font-size:24pt; color:#2e3e4e; margin-bottom:0.5cm; }
+    h2 { text-align:center; font-size:18pt; color:#2e3e4e; margin:1.5cm 0 0.5cm; }
+    p  { text-align:justify; line-height:1.5; margin-bottom:1cm; font-size:12pt; }
+
+    /* ensure sections don’t split */
+    .section { page-break-inside: avoid; }
+
+    /* page breaks */
+    .page-break { page-break-before: always; }
+
+    /* center all charts */
+    .charts { text-align:center; }
+
+    /* pie chart (equal size) */
+    .chart { display:inline-block; margin:0 1%; }
+
+    /* full-width charts (bar & network) */
+    .full-width { display:block; margin:0 auto; }
+
+  </style>
+</head>
+<body>
+  <p><strong>Date:</strong> {{ today }}</p>
+  <h1>Pedagogical Activity Report</h1>
+
+  <div class="section">
+    <p>This automatic report analyzes teaching activities to quantify the degree of linearity and nonlinearity observed in both teacher and student actions. It includes visual breakdowns of durations, activity frequencies, and a network structure analysis (TCI).</p>
+  </div>
+
+  <!-- Page 1: Teacher & Student pies -->
+  <div class="section charts">
+    <h2>Teacher Activity</h2>
+    <img src="data:image/png;base64,{{ teacher_img }}" class="chart" alt="Teacher Activity">
+    <h2>Student Activity Duration</h2>
+    <img src="data:image/png;base64,{{ student_img }}" class="chart" alt="Student Activity">
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Page 2: Frequency bar -->
+  <div class="section">
+    <h2>Teaching Activity Frequency</h2>
+    <p>The number of times each teaching activity was observed during the session.</p>
+    <img src="data:image/png;base64,{{ freq_img }}" class="full-width" alt="Frequency of Activities">
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Page 3: Co-Occurrence Network + TCI -->
+  <div class="section">
+    <h2>Co-Occurrence Network and TCI</h2>
+    <p>This network graph shows the co-occurrence relationships between activities, with the Temporal Coherence Index (TCI) summarizing structural consistency.</p>
+    <img src="data:image/png;base64,{{ net_img }}" class="full-width" alt="Co-Occurrence Network">
+  </div>
+</body>
+</html>
