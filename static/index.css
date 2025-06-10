@@ -209,16 +209,6 @@ body {
   margin: 0.25rem;    /* same as Bootstrap .m-1 */
 }
 
-/* mobile only: ≤576px */
-@media (max-width: 576px) {
-  .event-button {
-    display: block;
-    width: 100%;
-    margin: 0.5rem 0;
-  }
-}
-
-
 .player-button {
   margin-top: 0.5rem;
   margin-bottom: 0.5rem;
