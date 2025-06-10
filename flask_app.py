@@ -21,7 +21,7 @@ with open("/home/jkomar/kto/teaching-pedagogy/decision_tree/rf_features.txt") as
 # Local Dev
 # loaded_rf = joblib.load("./decision_tree/NLP_RFtrained.joblib")
 # with open("./decision_tree/rf_features.txt") as f:
-    # RF_FEATURES = [line.strip() for line in f]
+#     RF_FEATURES = [line.strip() for line in f]
 
 EVENTS = [
   "Isolated technical skill practice","Game representative skill","Modified game",
@@ -188,28 +188,55 @@ def download_pdf():
         duration['LP'] = 1
 
     # Teacher pie
-    fig, ax = plt.subplots(figsize=(6, 6))
-    ax.pie([duration['NLP'], duration['LP']],
+    fig, ax = plt.subplots(figsize=(5, 5))
+    ax.pie(
+        [duration['NLP'], duration['LP']],
         labels=["Linear Pedagogy", "Non-Linear Pedagogy"],
-        autopct='%1.1f%%', startangle=90)
-    plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)  # Add margin
-    buf_t = io.BytesIO(); fig.savefig(buf_t, format='png'); plt.close(fig)
+        autopct="%1.1f%%",
+        startangle=90,
+        labeldistance=1.1,
+        pctdistance=0.85
+    )
+    ax.axis("equal")
+    fig.tight_layout()
+    buf_t = io.BytesIO()
+    fig.savefig(
+        buf_t,
+        format="png",
+        bbox_inches="tight",
+        pad_inches=0.2
+    )
+    plt.close(fig)
+    buf_t.seek(0)
     teacher_img = base64.b64encode(buf_t.getvalue()).decode()
 
     # Student pie
-    fig, ax = plt.subplots(figsize=(6, 6))
-    ax.pie([duration['NLP'], duration['LP']],
+    fig, ax = plt.subplots(figsize=(5, 5))
+    ax.pie(
+        [duration['NLP'], duration['LP']],
         labels=[
-            f"Linear Pedagogy ({duration['LP']} seconds)",
-            f"Non-Linear Pedagogy ({duration['NLP']} seconds)"
+            f"Linear Pedagogy ({duration['LP']}s)",
+            f"Non-Linear Pedagogy ({duration['NLP']}s)"
         ],
-        autopct='%1.1f%%', startangle=90)
-    plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)  # Add margin
-    buf_s = io.BytesIO(); fig.savefig(buf_s, format='png'); plt.close(fig)
+        autopct="%1.1f%%",
+        startangle=90,
+        labeldistance=1.1,
+        pctdistance=0.85
+    )
+    ax.axis("equal")
+    fig.tight_layout()
+    buf_s = io.BytesIO()
+    fig.savefig(
+        buf_s,
+        format="png",
+        bbox_inches="tight",
+        pad_inches=0.2
+    )
+    plt.close(fig)
+    buf_s.seek(0)
     student_img = base64.b64encode(buf_s.getvalue()).decode()
 
-
-    # 3) network + TCI as before
+    # 3) network + TCI
     G, tci = build_network(events)
     fig, ax = plt.subplots(figsize=(5,5))
     pos = nx.spring_layout(G, k=1)
@@ -223,7 +250,6 @@ def download_pdf():
         fontsize=12,
         bbox=None
     )
-
     fig.tight_layout()
     buf_net = io.BytesIO(); fig.savefig(buf_net,format='png'); plt.close(fig)
     net_img = base64.b64encode(buf_net.getvalue()).decode()

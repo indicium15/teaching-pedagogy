@@ -58,36 +58,42 @@
     <div class="container-fluid p-4">
       <div class="row">
         <!-- left: button groups -->
-        <div class="col-lg-4 mb-4">
+        <div class="col-12 col-lg-5 mb-4">
           <h5>Practice Organization</h5>
-          {% for ev in practice_events %}
-          <button
-            class="btn btn-outline-primary btn-sm m-1 event-button"
-            data-event="{{ ev }}"
-          >
-            {{ ev }}
-          </button>
-          {% endfor %}
+          <div class="d-grid gap-2 d-lg-flex flex-wrap">
+            {% for ev in practice_events %}
+            <button
+              class="btn btn-outline-primary event-button"
+              data-event="{{ ev }}"
+            >
+              {{ ev }}
+            </button>
+            {% endfor %}
+          </div>
 
           <h5 class="mt-3">Instruction</h5>
-          {% for ev in instruction_events %}
-          <button
-            class="btn btn-outline-secondary btn-sm m-1 event-button"
-            data-event="{{ ev }}"
-          >
-            {{ ev }}
-          </button>
-          {% endfor %}
+          <div class="d-grid gap-2 d-lg-flex flex-wrap">
+            {% for ev in instruction_events %}
+            <button
+              class="btn btn-outline-secondary event-button"
+              data-event="{{ ev }}"
+            >
+              {{ ev }}
+            </button>
+            {% endfor %}
+          </div>
 
           <h5 class="mt-3">Feedback</h5>
+          <div class="d-grid gap-2 d-lg-flex flex-wrap">
           {% for ev in feedback_events %}
-          <button
-            class="btn btn-outline-success btn-sm m-1 event-button"
-            data-event="{{ ev }}"
-          >
-            {{ ev }}
-          </button>
-          {% endfor %}
+            <button
+              class="btn btn-outline-success event-button"
+              data-event="{{ ev }}"
+            >
+              {{ ev }}
+            </button>
+            {% endfor %}
+          </div>
 
           <button
             id="update-button"
@@ -98,10 +104,10 @@
         </div>
 
         <!-- right: cumulative counts -->
-        <div class="col-lg-8 mb-4">
+        <div class="col-12 col-lg-7 mb-4">
           <h5>Cumulative Counts</h5>
-          <div class="ratio ratio-16x9 mt-4">
-            <canvas id="barChart" class="w-100 h-100"></canvas>
+          <div class="mt-4" style="height: 550px">
+            <canvas id="barChart" style="width: 100%; height: 100%"></canvas>
           </div>
         </div>
       </div>
@@ -148,6 +154,7 @@
             <tr>
               <th>Timestamp</th>
               <th>Event</th>
+              <th>Delete</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -168,9 +175,7 @@
           <!-- Author Info -->
           <div class="col-lg-6 col-md-12 mb-4 mb-md-0 text-white">
             <h5 class="text-uppercase">Author</h5>
-            <p>
-              Developed by <strong>John Komar</strong>
-            </p>
+            <p>Developed by <strong>John Komar</strong></p>
           </div>
 
           <!-- Contact Info -->

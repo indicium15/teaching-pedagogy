@@ -8,6 +8,16 @@ $(document).ready(() => {
     paging: false,
     info: false,
     searching: false,
+    columns: [
+      { title: "Timestamp" },
+      { title: "Event" },
+      {
+        title: "Delete",
+        orderable: false,
+        defaultContent:
+          '<div class="text-center"><button class="btn btn-danger btn-sm delete-btn">X</button></div>',
+      },
+    ],
   });
 
   // Bar chart
@@ -78,7 +88,32 @@ $(document).ready(() => {
     await refreshNetwork();
   });
 
-  // … download handlers unchanged …
+  // Delegate click handler for delete buttons
+  $("#event-table tbody").on("click", "button.delete-btn", function () {
+    // 1. Find the DataTable row
+    const row = table.row($(this).closest("tr"));
+    const [time, ev] = row.data();
+
+    // 2. Remove from your in-memory eventsData array
+    eventsData = eventsData.filter(
+      (rec) => !(rec.time === time && rec.event === ev)
+    );
+
+    // 3. Decrement the count and update bar chart
+    const idx = EVENTS.indexOf(ev);
+    if (idx !== -1 && counts[idx] > 0) {
+      counts[idx]--;
+      barChart.data.datasets[0].data = counts;
+      barChart.update();
+    }
+
+    // 4. Remove row from table
+    row.remove().draw();
+
+    // 5. (Optional) re-run classification & network:
+    refreshClassification();
+    refreshNetwork();
+  });
 });
 
 async function refreshClassification() {
