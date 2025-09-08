@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, Response
 import pandas as pd, io, base64
 from datetime import datetime
 import matplotlib
@@ -189,8 +189,14 @@ def download_pdf():
 
     # Teacher pie
     fig, ax = plt.subplots(figsize=(5, 5))
+    # Ensure we have non-zero values to plot
+    if duration['NLP'] == 0 and duration['LP'] == 0:
+        # If both are 0, set them to 1 for equal representation
+        plot_values = [1, 1]
+    else:
+        plot_values = [duration['NLP'], duration['LP']]
     ax.pie(
-        [duration['NLP'], duration['LP']],
+        plot_values,
         labels=["Linear Pedagogy", "Non-Linear Pedagogy"],
         autopct="%1.1f%%",
         startangle=90,
@@ -212,8 +218,14 @@ def download_pdf():
 
     # Student pie
     fig, ax = plt.subplots(figsize=(5, 5))
+    # Ensure we have non-zero values to plot
+    if duration['NLP'] == 0 and duration['LP'] == 0:
+        # If both are 0, set them to 1 for equal representation
+        plot_values = [1, 1]
+    else:
+        plot_values = [duration['NLP'], duration['LP']]
     ax.pie(
-        [duration['NLP'], duration['LP']],
+        plot_values,
         labels=[
             f"Linear Pedagogy ({duration['LP']}s)",
             f"Non-Linear Pedagogy ({duration['NLP']}s)"
@@ -264,8 +276,13 @@ def download_pdf():
     pdf_buf = io.BytesIO()
     pisa.CreatePDF(html, dest=pdf_buf)
     pdf_buf.seek(0)
-    return send_file(pdf_buf, mimetype='application/pdf',
-                     as_attachment=True, download_name='report.pdf')
+    return Response(
+        pdf_buf,
+        mimetype='application/pdf',
+        headers={
+            'Content-Disposition': 'attachment; filename=report.pdf'
+        }
+    )
 
 if __name__=='__main__':
     app.run(debug=True)
