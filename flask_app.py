@@ -326,7 +326,7 @@ def download_pdf():
         # If both are 0, set them to 1 for equal representation
         plot_values = [1, 1]
     else:
-        plot_values = [duration['NLP'], duration['LP']]
+        plot_values = [duration['LP'], duration['NLP']]  # same order as the labels
     ax.pie(
         plot_values,
         labels=["Linear Pedagogy", "Non-Linear Pedagogy"],
@@ -355,7 +355,7 @@ def download_pdf():
         # If both are 0, set them to 1 for equal representation
         plot_values = [1, 1]
     else:
-        plot_values = [duration['NLP'], duration['LP']]
+        plot_values = [duration['LP'], duration['NLP']]  # same order as the labels
     ax.pie(
         plot_values,
         labels=[
