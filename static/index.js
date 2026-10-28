@@ -10,7 +10,7 @@ $(document).ready(() => {
     searching: false,
     order: [], // keep insertion (chronological) order; timestamps don't sort correctly as text
     columns: [
-      { title: "Timestamp" },
+      { title: "Timestamp", type: "string" }, // step numbers stay left-aligned like times
       { title: "Event" },
       {
         title: "Delete",
@@ -73,7 +73,7 @@ $(document).ready(() => {
   });
 
   $("#update-button").click(async () => {
-    const ts = new Date().toLocaleTimeString();
+    const ts = nextTimestamp();
     $(".event-button.active").each(function () {
       const ev = $(this).data("event");
       const idx = EVENTS.indexOf(ev);
@@ -132,6 +132,17 @@ $(document).ready(() => {
   });
 });
 
+// Sessions loaded from a file without times are numbered 1, 2, 3, ...;
+// keep numbering new steps instead of mixing in clock times
+function nextTimestamp() {
+  const numbered =
+    eventsData.length > 0 && eventsData.every((rec) => /^\d+$/.test(rec.time));
+  if (numbered) {
+    return String(Math.max(...eventsData.map((rec) => Number(rec.time))) + 1);
+  }
+  return new Date().toLocaleTimeString();
+}
+
 async function loadCsv(file) {
   const form = new FormData();
   form.append("file", file);
@@ -170,6 +181,7 @@ async function loadCsv(file) {
   classChart.update();
 
   await refreshNetwork();
+  if (js.notice) alert(js.notice);
 }
 
 async function refreshClassification() {

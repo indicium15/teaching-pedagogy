@@ -5,7 +5,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from xhtml2pdf import pisa
-from datetime import date, time
+from datetime import date, time, timedelta
 import joblib
 import networkx as nx
 import itertools
@@ -138,8 +138,8 @@ def download_csv():
     df['value'] = 1
     pivot_df = df.pivot_table(index='time', columns='event', values='value', fill_value=0)
 
-    # Reset index to make 'time' a column
-    pivot_df = pivot_df.reset_index()
+    # Keep rows in recorded order, then make 'time' a column
+    pivot_df = pivot_df.reindex(df['time'].unique()).reset_index()
 
     # Reorder columns (some may be missing initially)
     column_order = ['time'] + EVENTS
@@ -150,7 +150,6 @@ def download_csv():
         if col != 'time':
             pivot_df[col] = pivot_df[col].fillna(0).astype(int)
 
-    pivot_df.sort_values(by='time')
     # Save to buffer and send as file
     buf = io.StringIO()
     pivot_df.to_csv(buf, index=False)
@@ -192,6 +191,47 @@ def read_table(file):
     # sep=None sniffs the delimiter, e.g. ';' from Excel in European locales
     return pd.read_csv(io.StringIO(text), sep=None, engine='python')
 
+def is_step_number(value):
+    if isinstance(value, (int, float, np.integer, np.floating)) and not isinstance(value, bool):
+        return float(value).is_integer() and value >= 0
+    return str(value).strip().isdigit()
+
+def to_seconds(dt):
+    return dt.hour * 3600 + dt.minute * 60 + dt.second
+
+def format_seconds(seconds):
+    # Same format the browser's toLocaleTimeString() produces, e.g. "9:05:03 AM"
+    return (datetime(1900, 1, 1) + timedelta(seconds=int(round(seconds)))).strftime('%I:%M:%S %p').lstrip('0')
+
+def resolve_times(times):
+    """Turn the time column into sortable positions and display labels.
+
+    An empty time column numbers the rows 1, 2, 3, ... in file order.
+    Returns (positions, labels, notice) or raises ValueError with a user-facing message.
+    """
+    present = times.notna()
+    if not present.any():
+        positions = pd.Series(range(1, len(times) + 1), index=times.index)
+        return positions, positions.astype(str), (
+            "This file has no times, so its rows were numbered 1, 2, 3, … in file order.")
+    if not present.all():
+        row = times.index[~present][0] + 2  # +2: header line and 1-based rows
+        raise ValueError(f"Row {row} has no time. Fill in every time, or leave the whole "
+                         "time column empty to number the rows 1, 2, 3, … automatically.")
+
+    # Step numbers, e.g. from re-uploading a numbered session the app downloaded
+    if all(is_step_number(v) for v in times):
+        positions = times.astype(float).astype(int)
+        return positions, positions.astype(str), None
+    if any(is_step_number(v) for v in times):
+        raise ValueError("The time column mixes step numbers and clock times. Please use one or the other.")
+
+    parsed = times.map(parse_time)
+    if parsed.isna().any():
+        raise ValueError(f"Unrecognised time value: '{times[parsed.isna()].iloc[0]}'.")
+    seconds = parsed.map(to_seconds)
+    return seconds, seconds.map(format_seconds), None
+
 @app.route('/upload_csv', methods=['POST'])
 def upload_csv():
     file = request.files.get('file')
@@ -206,41 +246,48 @@ def upload_csv():
     canonical = {name.lower(): name for name in ['time'] + EVENTS}
     df.columns = [canonical.get(str(c).strip().lower(), str(c).strip()) for c in df.columns]
     if 'time' not in df.columns:
-        return jsonify({"error": "The file must have a 'time' column."}), 400
+        df['time'] = None
     event_cols = [e for e in EVENTS if e in df.columns]
     if not event_cols:
         return jsonify({"error": "The file has no recognised event columns."}), 400
 
     df = df.dropna(subset=['time'] + event_cols, how='all')  # blank rows
-    missing = df[df['time'].isna()]
-    if not missing.empty:
-        return jsonify({"error": f"Row {missing.index[0] + 2} has events but no time."}), 400
-    df['parsed'] = df['time'].map(parse_time)
-    bad = df[df['parsed'].isna()]
-    if not bad.empty:
-        return jsonify({"error": f"Unrecognised time value: '{bad['time'].iloc[0]}'."}), 400
+    df['time'] = df['time'].where(df['time'].astype(str).str.strip() != '')
+    try:
+        df['position'], df['label'], notice = resolve_times(df['time'])
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
     values = df.reindex(columns=EVENTS).apply(pd.to_numeric, errors='coerce')
     if values[event_cols].isna().any().any():
         return jsonify({"error": "Event columns must contain only numbers (0 or 1)."}), 400
     df[EVENTS] = (values.fillna(0) > 0).astype(int)
 
-    # One "Update" step per distinct timestamp, in chronological order
-    steps = df.groupby('parsed', sort=True)[EVENTS].max()
+    # One "Update" step per distinct time (or step number), in order
+    steps = df.groupby(['position', 'label'], sort=True)[EVENTS].max()
     steps = steps[steps.sum(axis=1) > 0]
     if steps.empty:
         return jsonify({"error": "The file contains no recorded events."}), 400
 
     events = []
-    for parsed, row in steps.iterrows():
-        # Same format the browser's toLocaleTimeString() produces, e.g. "9:05:03 AM"
-        ts = parsed.strftime('%I:%M:%S %p').lstrip('0')
-        events.extend({"time": ts, "event": e} for e in EVENTS if row[e])
+    for (_, label), row in steps.iterrows():
+        events.extend({"time": label, "event": e} for e in EVENTS if row[e])
 
     # Classify the cumulative counts after each step
     cumulative = pd.DataFrame(steps.cumsum().to_numpy(), columns=RF_FEATURES)
     predictions = loaded_rf.predict(cumulative)
-    return jsonify({"events": events, "predictions": [str(p) for p in predictions]})
+    return jsonify({"events": events, "predictions": [str(p) for p in predictions], "notice": notice})
+
+def event_positions(labels):
+    """Positions used to measure how long each event lasted, and the unit for the PDF."""
+    if all(is_step_number(l) for l in labels):
+        return [int(l) for l in labels], " steps"
+    parsed = [parse_time(l) for l in labels]
+    if all(p is not None for p in parsed):
+        return [to_seconds(p) % 86400 for p in parsed], "s"
+    # Mixed or unknown labels: treat each distinct label as one step
+    order = {l: i for i, l in enumerate(dict.fromkeys(labels))}
+    return [order[l] for l in labels], " steps"
 
 @app.route('/download_pdf', methods=['POST'])
 def download_pdf():
@@ -257,16 +304,16 @@ def download_pdf():
     freq_img = base64.b64encode(buf_freq.getvalue()).decode()
 
     # 2) compute durations & two pies
-    times = [datetime.strptime(r['time'], '%I:%M:%S %p') for r in events]
+    positions, unit = event_positions([r['time'] for r in events])
 
     duration = {'NLP': 0, 'LP': 0}
     if len(events) > 1:
-        times = [datetime.strptime(r['time'], '%I:%M:%S %p') for r in events]
         for i in range(len(events)-1):
             counts = [1 if events[i]['event']==e else 0 for e in EVENTS]
             df = pd.DataFrame([counts], columns=RF_FEATURES)
             label = loaded_rf.predict(df)[0]
-            duration[label] += (times[i+1]-times[i]).seconds
+            gap = positions[i+1]-positions[i]
+            duration[label] += gap % 86400 if unit == "s" else gap  # clock times may cross midnight
     else:
         # fallback to equal durations
         duration['NLP'] = 1
@@ -312,8 +359,8 @@ def download_pdf():
     ax.pie(
         plot_values,
         labels=[
-            f"Linear Pedagogy ({duration['LP']}s)",
-            f"Non-Linear Pedagogy ({duration['NLP']}s)"
+            f"Linear Pedagogy ({duration['LP']}{unit})",
+            f"Non-Linear Pedagogy ({duration['NLP']}{unit})"
         ],
         autopct="%1.1f%%",
         startangle=90,
