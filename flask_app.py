@@ -5,13 +5,18 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from xhtml2pdf import pisa
-from datetime import date
+from datetime import date, time
 import joblib
 import networkx as nx
 import itertools
 import numpy as np
 
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # caps uploads (a full lesson CSV is ~50 KB)
+
+@app.errorhandler(413)
+def too_large(e):
+    return jsonify({"error": "The file is too large (max 5 MB)."}), 413
 # load your trained RF
 # PythonAnywhere dev
 loaded_rf = joblib.load("/home/jkomar/kto/teaching-pedagogy/decision_tree/NLP_RFtrained.joblib")
@@ -156,6 +161,86 @@ def download_csv():
         as_attachment=True,
         download_name='activities.csv'
     )
+
+TIME_FORMATS = ['%I:%M:%S %p', '%I:%M %p', '%H:%M:%S', '%H:%M']
+
+def parse_time(value):
+    # Excel time/datetime cells arrive as objects rather than text
+    if isinstance(value, datetime):
+        return datetime.combine(date(1900, 1, 1), value.time())
+    if isinstance(value, time):
+        return datetime.combine(date(1900, 1, 1), value)
+    s = str(value).strip().upper()
+    for fmt in TIME_FORMATS:
+        try:
+            return datetime.strptime(s, fmt)
+        except ValueError:
+            pass
+    return None
+
+def read_table(file):
+    if file.filename.lower().endswith('.xlsx'):
+        return pd.read_excel(file)
+    raw = file.read()
+    # Excel on Windows may save as cp1252 rather than UTF-8; latin-1 never fails
+    for encoding in ('utf-8-sig', 'cp1252', 'latin-1'):
+        try:
+            text = raw.decode(encoding)
+            break
+        except UnicodeDecodeError:
+            pass
+    # sep=None sniffs the delimiter, e.g. ';' from Excel in European locales
+    return pd.read_csv(io.StringIO(text), sep=None, engine='python')
+
+@app.route('/upload_csv', methods=['POST'])
+def upload_csv():
+    file = request.files.get('file')
+    if file is None or file.filename == '':
+        return jsonify({"error": "No file uploaded."}), 400
+    try:
+        df = read_table(file)
+    except Exception:
+        return jsonify({"error": "Could not read the file. Please upload a CSV or Excel (.xlsx) file."}), 400
+
+    # Match headers ignoring case and surrounding spaces
+    canonical = {name.lower(): name for name in ['time'] + EVENTS}
+    df.columns = [canonical.get(str(c).strip().lower(), str(c).strip()) for c in df.columns]
+    if 'time' not in df.columns:
+        return jsonify({"error": "The file must have a 'time' column."}), 400
+    event_cols = [e for e in EVENTS if e in df.columns]
+    if not event_cols:
+        return jsonify({"error": "The file has no recognised event columns."}), 400
+
+    df = df.dropna(subset=['time'] + event_cols, how='all')  # blank rows
+    missing = df[df['time'].isna()]
+    if not missing.empty:
+        return jsonify({"error": f"Row {missing.index[0] + 2} has events but no time."}), 400
+    df['parsed'] = df['time'].map(parse_time)
+    bad = df[df['parsed'].isna()]
+    if not bad.empty:
+        return jsonify({"error": f"Unrecognised time value: '{bad['time'].iloc[0]}'."}), 400
+
+    values = df.reindex(columns=EVENTS).apply(pd.to_numeric, errors='coerce')
+    if values[event_cols].isna().any().any():
+        return jsonify({"error": "Event columns must contain only numbers (0 or 1)."}), 400
+    df[EVENTS] = (values.fillna(0) > 0).astype(int)
+
+    # One "Update" step per distinct timestamp, in chronological order
+    steps = df.groupby('parsed', sort=True)[EVENTS].max()
+    steps = steps[steps.sum(axis=1) > 0]
+    if steps.empty:
+        return jsonify({"error": "The file contains no recorded events."}), 400
+
+    events = []
+    for parsed, row in steps.iterrows():
+        # Same format the browser's toLocaleTimeString() produces, e.g. "9:05:03 AM"
+        ts = parsed.strftime('%I:%M:%S %p').lstrip('0')
+        events.extend({"time": ts, "event": e} for e in EVENTS if row[e])
+
+    # Classify the cumulative counts after each step
+    cumulative = pd.DataFrame(steps.cumsum().to_numpy(), columns=RF_FEATURES)
+    predictions = loaded_rf.predict(cumulative)
+    return jsonify({"events": events, "predictions": [str(p) for p in predictions]})
 
 @app.route('/download_pdf', methods=['POST'])
 def download_pdf():

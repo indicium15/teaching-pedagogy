@@ -57,6 +57,12 @@
         </ul>
       </div>
 
+      <!-- Load a previously downloaded CSV; kept outside the collapse so it shows on mobile -->
+      <button id="upload-csv" class="btn btn-outline-primary ms-auto ms-lg-3">
+        Upload CSV / Excel
+      </button>
+      <input type="file" id="upload-csv-input" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden />
+
       <!-- NIE Logo aligned right -->
       <img
         src="{{ url_for('static', filename='assets/NIE_Logo.jpeg') }}"
@@ -177,6 +183,7 @@
           Download CSV
         </button>
         <button id="download-pdf" class="btn btn-danger">Download PDF</button>
+
       </div>
     </div>
     <footer class="bg-dark text-center text-lg-start footer">

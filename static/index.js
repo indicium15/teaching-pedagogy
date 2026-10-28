@@ -8,6 +8,7 @@ $(document).ready(() => {
     paging: false,
     info: false,
     searching: false,
+    order: [], // keep insertion (chronological) order; timestamps don't sort correctly as text
     columns: [
       { title: "Timestamp" },
       { title: "Event" },
@@ -88,6 +89,21 @@ $(document).ready(() => {
     await refreshNetwork();
   });
 
+  $("#upload-csv").click(() => $("#upload-csv-input").click());
+
+  $("#upload-csv-input").on("change", async function () {
+    const file = this.files[0];
+    this.value = ""; // allow re-selecting the same file later
+    if (!file) return;
+    if (
+      eventsData.length > 0 &&
+      !confirm("Loading this file will replace the events currently logged. Continue?")
+    ) {
+      return;
+    }
+    await loadCsv(file);
+  });
+
   // Delegate click handler for delete buttons
   $("#event-table tbody").on("click", "button.delete-btn", function () {
     // 1. Find the DataTable row
@@ -115,6 +131,46 @@ $(document).ready(() => {
     refreshNetwork();
   });
 });
+
+async function loadCsv(file) {
+  const form = new FormData();
+  form.append("file", file);
+  let resp, js;
+  try {
+    resp = await fetch("/upload_csv", { method: "POST", body: form });
+    js = await resp.json();
+  } catch (err) {
+    alert("Could not load the file. Please check your connection and try again.");
+    return;
+  }
+  if (!resp.ok) {
+    alert(js.error || "Could not load the file.");
+    return;
+  }
+
+  // Replace the current session with the uploaded data
+  eventsData = js.events;
+  counts = Array(EVENTS.length).fill(0);
+  table.clear();
+  eventsData.forEach((rec) => {
+    counts[EVENTS.indexOf(rec.event)]++;
+    table.row.add([rec.time, rec.event]);
+  });
+  table.draw();
+  barChart.data.datasets[0].data = counts;
+  barChart.update();
+
+  // One prediction per timestamp, as if each was an Update click
+  predictionCounts = {};
+  js.predictions.forEach((pred) => {
+    predictionCounts[pred] = (predictionCounts[pred] || 0) + 1;
+  });
+  classChart.data.labels = Object.keys(predictionCounts);
+  classChart.data.datasets[0].data = Object.values(predictionCounts);
+  classChart.update();
+
+  await refreshNetwork();
+}
 
 async function refreshClassification() {
   let resp = await fetch("/classify", {
